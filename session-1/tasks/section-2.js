@@ -63,7 +63,7 @@ var plusOne = function (digits) {
 
 };
 
-4️⃣ Remove Duplicates from Sorted Array (LeetCode)
+// 4️⃣ Remove Duplicates from Sorted Array (LeetCode)
 
 /**
  * @param {number[]} nums
