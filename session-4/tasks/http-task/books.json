@@ -1,0 +1,23 @@
+[
+  {
+    "id": 1,
+    "title": "Clean Code",
+    "author": "Robert C. Martin",
+    "price": 450,
+    "available": true
+  },
+  {
+    "price": 300,
+    "title": "JavaScript: The Good Parts",
+    "author": "Douglas Crockford",
+    "available": true,
+    "id": 2
+  },
+  {
+    "price": 450,
+    "title": "The Pragmatic Programmer",
+    "author": "Andrew Hunt",
+    "available": false,
+    "id": 3
+  }
+]
