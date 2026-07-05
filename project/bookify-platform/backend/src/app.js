@@ -6,6 +6,9 @@ import morgan from "morgan";
 import errorHandler from "./middleware/errorHandler.js";
 import healthRoutes from "./routes/health.routes.js";
 import authRoutes from "./modules/auth/auth.routes.js";
+import providerRoutes from "./modules/provider/provider.routes.js";
+import providersRoutes from "./modules/provider/providers.routes.js";
+import serviceRoutes from "./modules/service/service.routes.js";
 
 const app = express();
 
@@ -23,6 +26,9 @@ app.use(express.json({ limit: "10kb" }));
 
 app.use("/api/health", healthRoutes);
 app.use("/api/v1/auth", authRoutes);
+app.use("/api/v1/provider", providerRoutes);
+app.use("/api/v1/providers", providersRoutes);
+app.use("/api/v1/services", serviceRoutes);
 
 // 404 Handler
 app.use((req, res) => {
