@@ -6,7 +6,8 @@ const path = require("path");
 const dbConnect = require("./config/db-connect");
 require("dotenv").config();
 const courseRouter = require("./routes/course-routes");
-
+const userRouter = require("./routes/user-routes");
+const authRouter = require("./routes/auth-routes")
 dbConnect();
 
 const app = express();
@@ -16,7 +17,8 @@ app.use(express.json());
 app.use("/api/v1/uploads", express.static(path.join(__dirname, "uploads")));
 
 app.use("/api/v1/courses", courseRouter);
-
+app.use("/api/v1/auth",authRouter)
+app.use("/api/v1/users", userRouter);
 app.listen(process.env.PORT, () => {
   console.log("Server listening on port 5000");
 });

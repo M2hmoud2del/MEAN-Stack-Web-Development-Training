@@ -73,7 +73,6 @@ const courseSchema = new mongoose.Schema(
       default: 0,
       min: [0, "Students count cannot be negative"],
     },
-
     imageUrl: {
       type: String,
       trim: true,

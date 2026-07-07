@@ -1,4 +1,7 @@
- const mongoose = require("mongoose");
+const mongoose = require("mongoose");
+const bcrypt = require("bcrypt");
+const dotenv = require("dotenv");
+dotenv.config();
 
 const userSchema = new mongoose.Schema({
   firstName: {
@@ -24,6 +27,7 @@ const userSchema = new mongoose.Schema({
     required: true,
     minlength: [6, "Password must be at least 6 characters long"],
     maxlength: [100, "Password cannot exceed 100 characters"],
+    select: false
   },
   role: {
     type: String,
@@ -34,6 +38,13 @@ const userSchema = new mongoose.Schema({
     type: String,
     match: [/^\+?[1-9]\d{1,14}$/, 'Please use a valid phone number.'],
   },
+  enrolledCourses: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Course",
+  }],
+  imageUrl: {
+    type: String,
+  },
     createdAt: {
     type: Date,
     default: Date.now,
@@ -43,5 +54,12 @@ const userSchema = new mongoose.Schema({
     default: null,
   },
 }, { timestamps: true });
+
+userSchema.pre('save', async function() {
+  if (this.isModified('password')) {
+    // Hash the password before saving it to the database
+    this.password = await bcrypt.hash(this.password,  10);
+  }
+});
 
 module.exports = mongoose.model('User', userSchema);
