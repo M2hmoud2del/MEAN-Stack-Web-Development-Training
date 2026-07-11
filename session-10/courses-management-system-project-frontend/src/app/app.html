@@ -1,7 +1,30 @@
-<app-header></app-header>
-
-<app-navigation></app-navigation>
-
-<div>
-    
-</div>
+@if (isAdmin) {
+  @for(product of products; track product.id) {
+    <div>
+      <h3>{{ product.name }}</h3>
+      <p>Category: {{ product.category }}</p>
+      <p>Price: ${{ product.price }}</p>
+      @if(product.stock > 0) {
+        <p>Availability: In Stock</p>
+      } @else {
+        <p>Availability: Out of Stock</p>
+      }
+      @switch(product.status) {
+        @case('new') {
+          <p>Status: New Arrival</p>
+        }
+        @case('sale') {
+          <p>Status: On Sale</p>
+        }
+        @default {
+          <p>Status: Regular Item</p>
+        }
+      }
+      <p>Status: {{ product.status }}</p>
+    </div>
+  } @empty {
+    <p>No products available.</p>
+  }
+} @else {
+  <p>Only admin can see products.</p>
+}
