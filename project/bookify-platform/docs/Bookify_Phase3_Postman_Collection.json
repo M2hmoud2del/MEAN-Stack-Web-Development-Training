@@ -1,4 +1,4 @@
-﻿{
+{
   "info": {
     "_postman_id": "7c96b365-2a5f-4c4d-94df-bookify-phase3",
     "name": "Bookify Phase 3 - Provider & Services",
@@ -9,9 +9,16 @@
     { "key": "baseUrl", "value": "http://localhost:5000" },
     { "key": "providerEmail", "value": "provider1@example.com" },
     { "key": "providerPassword", "value": "password123" },
+    { "key": "customerEmail", "value": "customer1@example.com" },
+    { "key": "customerPassword", "value": "password123" },
     { "key": "providerToken", "value": "" },
+    { "key": "customerToken", "value": "" },
     { "key": "providerId", "value": "" },
-    { "key": "serviceId", "value": "" }
+    { "key": "providerUserId", "value": "" },
+    { "key": "serviceId", "value": "" },
+    { "key": "appointmentId", "value": "" },
+    { "key": "checkoutSessionId", "value": "" },
+    { "key": "reviewId", "value": "" }
   ],
   "item": [
     {
@@ -61,6 +68,121 @@
               "path": ["api", "v1", "auth", "login"]
             },
             "description": "Gets a JWT and saves it as providerToken for protected provider/service requests."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "if (json.token) pm.collectionVariables.set('providerToken', json.token);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Google OAuth Start - Customer",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/auth/google?role=customer",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "google"],
+              "query": [
+                { "key": "role", "value": "customer" }
+              ]
+            },
+            "description": "Starts Google OAuth for a customer account. Because Google OAuth is browser-based, open this request in a browser/Postman OAuth flow and complete Google login. The callback returns a JWT JSON response."
+          }
+        },
+        {
+          "name": "Register Customer",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Test Customer\",\n  \"email\": \"{{customerEmail}}\",\n  \"password\": \"{{customerPassword}}\",\n  \"role\": \"customer\",\n  \"phone\": \"01100000000\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/register",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "auth", "register"]
+            },
+            "description": "Run once to create a customer user. If the user already exists, use Login Customer instead."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "if (json.token) pm.collectionVariables.set('customerToken', json.token);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login Customer",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{customerEmail}}\",\n  \"password\": \"{{customerPassword}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "auth", "login"]
+            },
+            "description": "Gets a customer JWT and saves it as customerToken for appointment and payment requests."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "if (json.token) pm.collectionVariables.set('customerToken', json.token);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Google OAuth Start - Provider",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/auth/google?role=provider",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "google"],
+              "query": [
+                { "key": "role", "value": "provider" }
+              ]
+            },
+            "description": "Starts Google OAuth for a provider account. New Google users created through this route get role provider; existing users keep their current role."
+          }
+        },
+        {
+          "name": "Google OAuth Callback",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/auth/google/callback",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "google", "callback"]
+            },
+            "description": "Google redirects here after successful login. Do not call this manually unless Google has provided the callback query parameters."
           },
           "event": [
             {
@@ -328,6 +450,7 @@
                   "const json = pm.response.json();",
                   "if (!pm.collectionVariables.get('serviceId') && json.services && json.services[0]) {",
                   "  pm.collectionVariables.set('serviceId', json.services[0]._id);",
+                  "  if (json.services[0].provider && json.services[0].provider._id) pm.collectionVariables.set('providerUserId', json.services[0].provider._id);",
                   "}"
                 ]
               }
@@ -345,6 +468,218 @@
               "path": ["api", "v1", "services", "{{serviceId}}"]
             },
             "description": "Public service details by active service id."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Phase 6 Payments",
+      "item": [
+        {
+          "name": "Create Appointment For Payment",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{customerToken}}", "type": "string" }] },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"providerId\": \"{{providerUserId}}\",\n  \"serviceId\": \"{{serviceId}}\",\n  \"date\": \"2026-07-20\",\n  \"startTime\": \"10:00\",\n  \"notes\": \"Payment flow test appointment\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/appointments",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "appointments"]
+            },
+            "description": "Creates a pending_payment appointment as a customer. Run Login Customer and Get Services first so customerToken, providerUserId, and serviceId are set."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "if (json.data && json.data._id) pm.collectionVariables.set('appointmentId', json.data._id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create Checkout Session",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{customerToken}}", "type": "string" }] },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"appointmentId\": \"{{appointmentId}}\",\n  \"successUrl\": \"http://localhost:4200/payments/success?session_id={CHECKOUT_SESSION_ID}\",\n  \"cancelUrl\": \"http://localhost:4200/payments/cancel\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/payments/create-checkout-session",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "payments", "create-checkout-session"]
+            },
+            "description": "Creates a Stripe Sandbox Checkout Session. Open data.checkoutUrl in the browser to pay with a Stripe test card."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "if (json.data && json.data.sessionId) pm.collectionVariables.set('checkoutSessionId', json.data.sessionId);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get My Payments - Customer",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{customerToken}}", "type": "string" }] },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/payments/my",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "payments", "my"]
+            },
+            "description": "Returns payments for the logged-in customer."
+          }
+        },
+        {
+          "name": "Get My Payments - Provider",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{providerToken}}", "type": "string" }] },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/payments/my",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "payments", "my"]
+            },
+            "description": "Returns payments for the logged-in provider."
+          }
+        },
+        {
+          "name": "Stripe Webhook",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Stripe-Signature", "value": "use-stripe-cli-forwarding-for-real-signature" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id\": \"evt_test_webhook\",\n  \"type\": \"checkout.session.completed\",\n  \"data\": {\n    \"object\": {\n      \"id\": \"{{checkoutSessionId}}\",\n      \"payment_intent\": \"pi_test\"\n    }\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/webhooks/stripe",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "webhooks", "stripe"]
+            },
+            "description": "Stripe requires a valid signed raw body. For real testing, run: stripe listen --forward-to localhost:5000/api/webhooks/stripe"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Phase 7 Reviews",
+      "item": [
+        {
+          "name": "Create Review",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{customerToken}}", "type": "string" }] },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"appointmentId\": \"{{appointmentId}}\",\n  \"rating\": 5,\n  \"comment\": \"Excellent service, very professional!\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/reviews",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "reviews"]
+            },
+            "description": "Creates a review for a completed appointment. Only the customer who booked the appointment can leave a review. Duplicate reviews are prevented."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "if (json.data && json.data.review && json.data.review._id) pm.collectionVariables.set('reviewId', json.data.review._id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create Review - Duplicate (Should Fail)",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{customerToken}}", "type": "string" }] },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"appointmentId\": \"{{appointmentId}}\",\n  \"rating\": 4,\n  \"comment\": \"Trying to leave a second review\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/reviews",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "reviews"]
+            },
+            "description": "Attempts to create a duplicate review for the same appointment. Should return 409 Conflict."
+          }
+        },
+        {
+          "name": "Get Provider Reviews",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/reviews/provider/{{providerUserId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "reviews", "provider", "{{providerUserId}}"]
+            },
+            "description": "Public endpoint. Returns all reviews for a provider along with their average rating."
+          }
+        },
+        {
+          "name": "Get My Reviews",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{customerToken}}", "type": "string" }] },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/reviews/my",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "reviews", "my"]
+            },
+            "description": "Returns all reviews written by the logged-in customer."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Phase 7 Dashboard",
+      "item": [
+        {
+          "name": "Get Provider Dashboard",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{providerToken}}", "type": "string" }] },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/dashboard/provider",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "dashboard", "provider"]
+            },
+            "description": "Returns the provider dashboard with: today's appointments, upcoming appointments, monthly revenue, total revenue, average rating, customer statistics, and appointment statistics by status."
           }
         }
       ]
