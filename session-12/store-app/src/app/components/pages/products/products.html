@@ -1,0 +1,46 @@
+<div class="mx-auto mt-12 max-w-6xl px-6">
+  <header class="mb-10 text-center">
+    <h1 class="text-4xl font-bold text-gray-800">{{ store.name }}</h1>
+    <img [src]="store.logo" [alt]="store.name + ' logo'" class="mx-auto mt-4 h-28 w-28 rounded-2xl object-cover shadow" />
+    <p class="mt-4 text-gray-600">Branches: {{ store.branches.join(' • ') }}</p>
+  </header>
+
+  @if (!IsPurchased) {
+    <section class="mb-8 rounded-xl bg-white p-6 shadow-lg">
+      <label for="client-name" class="mb-2 block font-semibold">Client name</label>
+      <input id="client-name" type="text" [(ngModel)]="ClientName" class="mb-4 w-full rounded-lg border px-4 py-2" placeholder="Enter your name" />
+      <button type="button" (click)="confirmClient()" class="rounded-lg bg-green-600 px-6 py-2 text-white hover:bg-green-700">Confirm</button>
+    </section>
+  }
+
+  @if (IsPurchased) {
+    <p class="mb-8 rounded-xl bg-green-50 p-4 text-xl font-bold text-green-700">{{ ClientName }} Entered.</p>
+  }
+
+  <section class="mb-8 grid gap-4 rounded-xl bg-white p-6 shadow-lg md:grid-cols-2">
+    <div>
+      <label for="category" class="mb-2 block font-semibold">Category</label>
+      <select id="category" [(ngModel)]="selectedCategoryID" class="w-full rounded-lg border px-4 py-2">
+        <option [ngValue]="0">All categories</option>
+        @for (category of CategoryList; track category.ID) {
+          <option [ngValue]="category.ID">{{ category.Name }}</option>
+        }
+      </select>
+    </div>
+    <div>
+      <label for="search" class="mb-2 block font-semibold">Search by product name</label>
+      <input id="search" type="search" [(ngModel)]="searchTerm" class="w-full rounded-lg border px-4 py-2" placeholder="e.g. phone" />
+    </div>
+  </section>
+
+  <h2 class="mb-6 text-3xl font-bold text-gray-800">Products</h2>
+  @if (filteredProducts.length > 0) {
+    <div class="grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-3">
+      @for (product of filteredProducts; track product.id) {
+        <app-product-card [product]="product" (productPurchased)="buyProduct($event)" />
+      }
+    </div>
+  } @else {
+    <p class="rounded-xl bg-white p-6 text-center text-gray-600 shadow">No products match your search.</p>
+  }
+</div>
