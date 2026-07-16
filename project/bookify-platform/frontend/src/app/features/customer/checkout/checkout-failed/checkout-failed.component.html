@@ -1,0 +1,37 @@
+<div class="failed-page">
+      <div class="failed-card">
+        <div class="failed-icon">
+          <span class="material-icons-outlined">error</span>
+        </div>
+        <h1 class="failed-title">Payment Not Completed</h1>
+        <p class="failed-message">
+          We could not complete your payment. Your appointment remains unconfirmed until Stripe payment succeeds.
+        </p>
+
+        @if (error()) {
+          <p class="error-message">{{ error() }}</p>
+        }
+
+        <div class="error-details">
+          <p class="error-text">
+            <span class="material-icons-outlined">info</span>
+            No paid status is set from the frontend. You can retry checkout for this appointment.
+          </p>
+        </div>
+
+        <div class="actions">
+          @if (appointmentId) {
+            <app-button variant="primary" [loading]="retrying()" [disabled]="retrying()" (onClick)="retryPayment()">
+              Retry Payment
+            </app-button>
+          } @else {
+            <app-button variant="primary" routerLink="/customer/book">
+              Try Again
+            </app-button>
+          }
+          <app-button variant="outline" routerLink="/customer/dashboard">
+            Back to Dashboard
+          </app-button>
+        </div>
+      </div>
+    </div>

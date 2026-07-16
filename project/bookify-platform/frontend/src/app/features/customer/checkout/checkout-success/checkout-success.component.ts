@@ -1,192 +1,103 @@
-import { Component, inject } from '@angular/core';
+import { Component, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { RouterLink } from '@angular/router';
+import { ActivatedRoute, RouterLink } from '@angular/router';
 import { ButtonComponent } from '../../../../shared/components/button/button.component';
 import { CardComponent } from '../../../../shared/components/card/card.component';
+import { StatusBadgeComponent } from '../../../../shared/components/status-badge/status-badge.component';
+import { AppointmentView } from '../../../../core/models/appointment.model';
+import { PaymentView } from '../../../../core/models/payment.model';
+import { AppointmentsApi } from '../../appointments/appointments.api';
+import { PaymentsApi } from '../../payments/payments.api';
 
 @Component({
   selector: 'app-checkout-success',
   standalone: true,
-  imports: [CommonModule, RouterLink, ButtonComponent, CardComponent],
-  template: `
-    <div class="success-page">
-      <div class="success-card">
-        <div class="success-icon">
-          <span class="material-icons-outlined">check_circle</span>
-        </div>
-        <h1 class="success-title">Booking Confirmed!</h1>
-        <p class="success-message">
-          Your appointment has been successfully booked. You will receive a confirmation email shortly.
-        </p>
-
-        <app-card class="details-card">
-          <h2 class="card-title">Booking Details</h2>
-          <div class="details-grid">
-            <div class="detail-item">
-              <span class="material-icons-outlined">business</span>
-              <div class="detail-content">
-                <span class="detail-label">Provider</span>
-                <span class="detail-value">Blossom Beauty Salon</span>
-              </div>
-            </div>
-            <div class="detail-item">
-              <span class="material-icons-outlined">medical_services</span>
-              <div class="detail-content">
-                <span class="detail-label">Service</span>
-                <span class="detail-value">Haircut & Styling</span>
-              </div>
-            </div>
-            <div class="detail-item">
-              <span class="material-icons-outlined">event</span>
-              <div class="detail-content">
-                <span class="detail-label">Date</span>
-                <span class="detail-value">July 2, 2026</span>
-              </div>
-            </div>
-            <div class="detail-item">
-              <span class="material-icons-outlined">schedule</span>
-              <div class="detail-content">
-                <span class="detail-label">Time</span>
-                <span class="detail-value">10:00 AM</span>
-              </div>
-            </div>
-            <div class="detail-item">
-              <span class="material-icons-outlined">payments</span>
-              <div class="detail-content">
-                <span class="detail-label">Total</span>
-                <span class="detail-value price">$65.00</span>
-              </div>
-            </div>
-          </div>
-        </app-card>
-
-        <div class="actions">
-          <app-button variant="primary" routerLink="/customer/dashboard">
-            View Dashboard
-          </app-button>
-          <app-button variant="outline" routerLink="/customer/appointments">
-            View Appointments
-          </app-button>
-        </div>
-      </div>
-    </div>
-  `,
-  styles: [`
-    :host {
-      display: block;
-      min-height: calc(100vh - var(--navbar-height));
-      padding: var(--space-8);
-    }
-
-    .success-page {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-
-    .success-card {
-      max-width: 480px;
-      width: 100%;
-      text-align: center;
-    }
-
-    .success-icon {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      width: 80px;
-      height: 80px;
-      background: var(--success-100);
-      border-radius: var(--radius-full);
-      margin-bottom: var(--space-6);
-    }
-
-    :host-context(.dark) .success-icon {
-      background: rgba(34, 197, 94, 0.2);
-    }
-
-    .success-icon .material-icons-outlined {
-      font-size: 2.5rem;
-      color: var(--success-500);
-    }
-
-    .success-title {
-      font-size: var(--font-size-2xl);
-      font-weight: var(--font-weight-bold);
-      color: var(--text-primary);
-      margin: 0 0 var(--space-3);
-    }
-
-    .success-message {
-      font-size: var(--font-size-base);
-      color: var(--text-secondary);
-      margin: 0 0 var(--space-8);
-    }
-
-    .details-card {
-      text-align: left;
-      margin-bottom: var(--space-6);
-    }
-
-    .card-title {
-      font-size: var(--font-size-base);
-      font-weight: var(--font-weight-semibold);
-      color: var(--text-primary);
-      margin: 0 0 var(--space-4);
-    }
-
-    .details-grid {
-      display: flex;
-      flex-direction: column;
-      gap: var(--space-4);
-    }
-
-    .detail-item {
-      display: flex;
-      align-items: center;
-      gap: var(--space-3);
-    }
-
-    .detail-item .material-icons-outlined {
-      color: var(--primary-500);
-      font-size: 1.25rem;
-    }
-
-    .detail-content {
-      flex: 1;
-    }
-
-    .detail-label {
-      display: block;
-      font-size: var(--font-size-xs);
-      color: var(--text-secondary);
-    }
-
-    .detail-value {
-      display: block;
-      font-size: var(--font-size-sm);
-      font-weight: var(--font-weight-medium);
-      color: var(--text-primary);
-    }
-
-    .detail-value.price {
-      color: var(--primary-500);
-      font-size: var(--font-size-lg);
-      font-weight: var(--font-weight-bold);
-    }
-
-    .actions {
-      display: flex;
-      flex-direction: column;
-      gap: var(--space-3);
-    }
-
-    @media (min-width: 480px) {
-      .actions {
-        flex-direction: row;
-        justify-content: center;
-      }
-    }
-  `],
+  imports: [CommonModule, RouterLink, ButtonComponent, CardComponent, StatusBadgeComponent],
+  templateUrl: './checkout-success.component.html',
+  styleUrl: './checkout-success.component.css',
 })
-export class CheckoutSuccessComponent {}
+export class CheckoutSuccessComponent {
+  private route = inject(ActivatedRoute);
+  private appointmentsApi = inject(AppointmentsApi);
+  private paymentsApi = inject(PaymentsApi);
+
+  loading = signal(false);
+  error = signal<string | null>(null);
+  appointment = signal<AppointmentView | null>(null);
+  payment = signal<PaymentView | null>(null);
+
+  title = computed(() => {
+    const appointment = this.appointment();
+    if (appointment?.status === 'confirmed' && appointment.paymentStatus === 'paid') {
+      return 'Booking Confirmed!';
+    }
+
+    return 'Payment Processing';
+  });
+
+  message = computed(() => {
+    const appointment = this.appointment();
+    if (appointment?.status === 'confirmed' && appointment.paymentStatus === 'paid') {
+      return 'Your appointment has been confirmed by the backend after payment verification.';
+    }
+
+    return 'Stripe has redirected you back. We are showing the latest backend appointment and payment status.';
+  });
+
+  constructor() {
+    void this.loadStatus();
+  }
+
+  async loadStatus(): Promise<void> {
+    const appointmentId = this.route.snapshot.queryParamMap.get('appointmentId');
+
+    if (!appointmentId) {
+      this.error.set('Appointment reference was not returned. Check your appointments page for the latest status.');
+      return;
+    }
+
+    this.loading.set(true);
+    this.error.set(null);
+
+    try {
+      const [appointment, payments] = await Promise.all([
+        this.appointmentsApi.getAppointmentById(appointmentId),
+        this.paymentsApi.getMyPayments(),
+      ]);
+      this.appointment.set(appointment);
+      this.payment.set(payments.find(payment => this.paymentAppointmentId(payment) === appointmentId) || null);
+    } catch (err) {
+      this.error.set(this.errorMessage(err, 'Unable to load checkout status.'));
+    } finally {
+      this.loading.set(false);
+    }
+  }
+
+  formattedDate(): string {
+    const value = this.appointment()?.localDate;
+    return value ? new Date(value).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : '';
+  }
+
+  formattedTime(): string {
+    const value = this.appointment()?.startTime || '';
+    if (!value) return '';
+    const [h, m] = value.split(':');
+    const hour = parseInt(h, 10);
+    const period = hour >= 12 ? 'PM' : 'AM';
+    const displayHour = hour > 12 ? hour - 12 : hour === 0 ? 12 : hour;
+    return `${displayHour}:${m} ${period}`;
+  }
+
+  amount(): number {
+    return this.payment()?.amount ?? this.appointment()?.totalAmount ?? this.appointment()?.service.price ?? 0;
+  }
+
+  private paymentAppointmentId(payment: PaymentView): string {
+    return typeof payment.appointment === 'string' ? payment.appointment : payment.appointment._id;
+  }
+
+  private errorMessage(err: unknown, fallback: string): string {
+    const message = (err as { message?: string })?.message;
+    return message || (err instanceof Error ? err.message : fallback);
+  }
+}

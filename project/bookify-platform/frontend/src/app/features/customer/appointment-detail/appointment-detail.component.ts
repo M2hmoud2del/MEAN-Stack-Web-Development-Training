@@ -1,81 +1,162 @@
-import { Component } from '@angular/core';
+import { Component, inject, computed, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { RouterLink } from '@angular/router';
-import { CardComponent } from '../../../shared/components/card/card.component';
-import { AvatarComponent } from '../../../shared/components/avatar/avatar.component';
-import { BadgeComponent } from '../../../shared/components/badge/badge.component';
+import { RouterLink, ActivatedRoute, Router } from '@angular/router';
 import { ButtonComponent } from '../../../shared/components/button/button.component';
+import { AvatarComponent } from '../../../shared/components/avatar/avatar.component';
+import { StatusBadgeComponent } from '../../../shared/components/status-badge/status-badge.component';
+import { EmptyStateComponent } from '../../../shared/components/empty-state/empty-state.component';
+import { ConfirmDialogComponent } from '../../../shared/components/confirm-dialog/confirm-dialog.component';
+import { AppointmentTimelineComponent } from '../shared/appointment-timeline.component';
+import { getTimelineForAppointment } from '../shared/customer.models';
+import { AppointmentView } from '../../../core/models/appointment.model';
+import { AppointmentsApi } from '../appointments/appointments.api';
+import { ModalComponent } from '../../../shared/components/modal/modal.component';
+import { ReviewFormComponent } from '../shared/review-form.component';
+import { ReviewsApi } from '../reviews/reviews.api';
 
 @Component({
   selector: 'app-appointment-detail',
   standalone: true,
-  imports: [CommonModule, RouterLink, CardComponent, AvatarComponent, BadgeComponent, ButtonComponent],
-  template: `
-    <div class="appointment-detail-page">
-      <div class="page-header">
-        <a routerLink="/customer/appointments" class="back-link">
-          <span class="material-icons-outlined">arrow_back</span>
-          Back to Appointments
-        </a>
-        <h1 class="page-title">Appointment Details</h1>
-      </div>
-      <app-card>
-        <div class="detail-grid">
-          <div class="detail-section">
-            <h2 class="section-title">Service</h2>
-            <div class="provider-info">
-              <app-avatar name="Blossom Beauty" size="lg" />
-              <div class="provider-details">
-                <h3 class="service-name">Haircut & Styling</h3>
-                <p class="provider-name">Blossom Beauty Salon</p>
-              </div>
-            </div>
-          </div>
-          <div class="detail-section">
-            <h2 class="section-title">Date & Time</h2>
-            <div class="datetime-info">
-              <span class="material-icons-outlined">event</span>
-              <div class="datetime-text">
-                <p class="date">July 2, 2026</p>
-                <p class="time">10:00 AM - 10:45 AM</p>
-              </div>
-            </div>
-          </div>
-          <div class="detail-section">
-            <h2 class="section-title">Status</h2>
-            <app-badge variant="success">Confirmed</app-badge>
-          </div>
-          <div class="detail-section">
-            <h2 class="section-title">Payment</h2>
-            <p class="amount">$65.00</p>
-            <app-badge variant="success">Paid</app-badge>
-          </div>
-        </div>
-      </app-card>
-      <div class="actions">
-        <app-button variant="outline">Reschedule</app-button>
-        <app-button variant="danger">Cancel Appointment</app-button>
-      </div>
-    </div>
-  `,
-  styles: [`
-    .appointment-detail-page { display: flex; flex-direction: column; gap: var(--space-6); max-width: 600px; }
-    .page-header { display: flex; flex-direction: column; gap: var(--space-3); }
-    .back-link { display: flex; align-items: center; gap: var(--space-1); font-size: var(--font-size-sm); color: var(--text-secondary); text-decoration: none; }
-    .back-link:hover { color: var(--primary-500); }
-    .page-title { font-size: var(--font-size-2xl); font-weight: var(--font-weight-bold); color: var(--text-primary); margin: 0; }
-    .detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-6); }
-    @media (max-width: 639px) { .detail-grid { grid-template-columns: 1fr; } }
-    .section-title { font-size: var(--font-size-sm); font-weight: var(--font-weight-medium); color: var(--text-secondary); margin: 0 0 var(--space-2); }
-    .provider-info { display: flex; align-items: center; gap: var(--space-3); }
-    .service-name { font-size: var(--font-size-base); font-weight: var(--font-weight-semibold); color: var(--text-primary); margin: 0; }
-    .provider-name { font-size: var(--font-size-sm); color: var(--text-secondary); margin: var(--space-1) 0 0; }
-    .datetime-info { display: flex; align-items: center; gap: var(--space-3); }
-    .datetime-info .material-icons-outlined { color: var(--primary-500); }
-    .date { font-size: var(--font-size-base); font-weight: var(--font-weight-medium); color: var(--text-primary); margin: 0; }
-    .time { font-size: var(--font-size-sm); color: var(--text-secondary); margin: var(--space-1) 0 0; }
-    .amount { font-size: var(--font-size-2xl); font-weight: var(--font-weight-bold); color: var(--text-primary); margin: 0 0 var(--space-2); }
-    .actions { display: flex; gap: var(--space-3); }
-  `],
+  imports: [
+    CommonModule,
+    RouterLink,
+    ButtonComponent,
+    AvatarComponent,
+    StatusBadgeComponent,
+    EmptyStateComponent,
+    ConfirmDialogComponent,
+    AppointmentTimelineComponent,
+    ModalComponent,
+    ReviewFormComponent,
+  ],
+  templateUrl: './appointment-detail.component.html',
+  styleUrl: './appointment-detail.component.css',
 })
-export class AppointmentDetailComponent {}
+export class AppointmentDetailComponent {
+  private route = inject(ActivatedRoute);
+  private appointmentsApi = inject(AppointmentsApi);
+  private reviewsApi = inject(ReviewsApi);
+  router = inject(Router);
+
+  showCancel = signal(false);
+  showReschedule = signal(false);
+  showReviewModal = signal(false);
+  appointment = signal<AppointmentView | null>(null);
+  loading = signal(false);
+  cancelling = signal(false);
+  submittingReview = signal(false);
+  error = signal<string | null>(null);
+
+  timeline = computed(() => {
+    const apt = this.appointment();
+    return apt ? getTimelineForAppointment(apt) : [];
+  });
+
+  constructor() {
+    void this.loadAppointment();
+  }
+
+  async loadAppointment(): Promise<void> {
+    const id = this.route.snapshot.paramMap.get('id');
+
+    if (!id) {
+      return;
+    }
+
+    this.loading.set(true);
+    this.error.set(null);
+
+    try {
+      this.appointment.set(await this.appointmentsApi.getAppointmentById(id));
+    } catch (err) {
+      this.error.set(this.errorMessage(err, 'Unable to load appointment.'));
+    } finally {
+      this.loading.set(false);
+    }
+  }
+
+  canReschedule(): boolean {
+    const s = this.appointment()?.status;
+    return s === 'confirmed' || s === 'pending_payment';
+  }
+
+  canCancel(): boolean {
+    const s = this.appointment()?.status;
+    return s === 'confirmed' || s === 'pending_payment';
+  }
+
+  canReview(): boolean {
+    const s = this.appointment()?.status;
+    return s === 'completed' || s === 'confirmed';
+  }
+
+  formattedDate(): string {
+    const d = this.appointment()?.localDate;
+    return d ? new Date(d).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }) : '';
+  }
+
+  formattedTime(): string {
+    return this.formatTime(this.appointment()?.startTime ?? '');
+  }
+
+  formattedEndTime(): string {
+    return this.formatTime(this.appointment()?.endTime ?? '');
+  }
+
+  private formatTime(t: string): string {
+    if (!t) return '';
+    const [h, m] = t.split(':');
+    const hour = parseInt(h, 10);
+    const period = hour >= 12 ? 'PM' : 'AM';
+    const displayHour = hour > 12 ? hour - 12 : hour === 0 ? 12 : hour;
+    return `${displayHour}:${m} ${period}`;
+  }
+
+  async confirmCancel(): Promise<void> {
+    const appointment = this.appointment();
+
+    if (!appointment) {
+      return;
+    }
+
+    this.cancelling.set(true);
+    this.error.set(null);
+
+    try {
+      this.appointment.set(await this.appointmentsApi.cancelAppointment(appointment._id));
+      this.showCancel.set(false);
+    } catch (err) {
+      this.error.set(this.errorMessage(err, 'Unable to cancel appointment.'));
+    } finally {
+      this.cancelling.set(false);
+    }
+  }
+
+  private errorMessage(err: unknown, fallback: string): string {
+    const message = (err as { message?: string })?.message;
+    return message || (err instanceof Error ? err.message : fallback);
+  }
+
+  async submitReview(data: { rating: number; comment: string }): Promise<void> {
+    const apt = this.appointment();
+    if (!apt) return;
+
+    this.submittingReview.set(true);
+    this.error.set(null);
+
+    try {
+      await this.reviewsApi.createReview({
+        appointmentId: apt._id,
+        rating: data.rating,
+        comment: data.comment,
+      });
+      this.showReviewModal.set(false);
+      // reload appointment to update timeline/status if needed, or redirect
+      await this.loadAppointment();
+    } catch (err) {
+      this.error.set(this.errorMessage(err, 'Unable to submit review.'));
+    } finally {
+      this.submittingReview.set(false);
+    }
+  }
+}

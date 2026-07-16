@@ -1,104 +1,49 @@
 import { Component, input } from '@angular/core';
 import { CommonModule } from '@angular/common';
 
-export type BadgeVariant = 'primary' | 'secondary' | 'success' | 'warning' | 'danger' | 'gray';
+export type SkeletonVariant = 'rectangular' | 'circle' | 'text' | 'avatar';
 
 @Component({
-  selector: 'app-badge',
+  selector: 'app-skeleton',
   standalone: true,
   imports: [CommonModule],
-  template: `
-    <span
-      class="badge"
-      [ngClass]="{
-        'badge-primary': variant() === 'primary',
-        'badge-secondary': variant() === 'secondary',
-        'badge-success': variant() === 'success',
-        'badge-warning': variant() === 'warning',
-        'badge-danger': variant() === 'danger',
-        'badge-gray': variant() === 'gray'
-      }"
-    >
-      <ng-content />
-    </span>
-  `,
-  styles: [`
-    :host {
-      display: inline-flex;
-    }
-
-    .badge {
-      display: inline-flex;
-      align-items: center;
-      padding: 0.125rem 0.5rem;
-      font-size: var(--font-size-xs);
-      font-weight: var(--font-weight-medium);
-      line-height: 1.25rem;
-      border-radius: var(--radius-md);
-      white-space: nowrap;
-    }
-
-    .badge-primary {
-      background: var(--primary-100);
-      color: var(--primary-700);
-    }
-
-    :host-context(.dark) .badge-primary {
-      background: rgba(79, 70, 229, 0.2);
-      color: var(--primary-300);
-    }
-
-    .badge-secondary {
-      background: var(--accent-100);
-      color: var(--accent-700);
-    }
-
-    :host-context(.dark) .badge-secondary {
-      background: rgba(20, 184, 166, 0.2);
-      color: var(--accent-300);
-    }
-
-    .badge-success {
-      background: var(--success-100);
-      color: var(--success-700);
-    }
-
-    :host-context(.dark) .badge-success {
-      background: rgba(34, 197, 94, 0.2);
-      color: var(--success-500);
-    }
-
-    .badge-warning {
-      background: var(--warning-100);
-      color: var(--warning-700);
-    }
-
-    :host-context(.dark) .badge-warning {
-      background: rgba(245, 158, 11, 0.2);
-      color: var(--warning-500);
-    }
-
-    .badge-danger {
-      background: var(--danger-100);
-      color: var(--danger-700);
-    }
-
-    :host-context(.dark) .badge-danger {
-      background: rgba(239, 68, 68, 0.2);
-      color: var(--danger-500);
-    }
-
-    .badge-gray {
-      background: var(--gray-100);
-      color: var(--gray-600);
-    }
-
-    :host-context(.dark) .badge-gray {
-      background: var(--gray-700);
-      color: var(--gray-300);
-    }
-  `],
+  templateUrl: './skeleton.component.html',
+  styleUrl: './skeleton.component.css',
 })
-export class BadgeComponent {
-  variant = input<BadgeVariant>('gray');
+export class SkeletonComponent {
+  variant = input<SkeletonVariant>('rectangular');
+  width = input<string | undefined>(undefined);
+  height = input<string | undefined>(undefined);
+}
+
+@Component({
+  selector: 'app-skeleton-card',
+  standalone: true,
+  imports: [CommonModule],
+  templateUrl: './skeleton-card.component.html',
+  styleUrl: './skeleton-card.component.css',
+})
+export class SkeletonCardComponent {}
+
+@Component({
+  selector: 'app-skeleton-table',
+  standalone: true,
+  imports: [CommonModule],
+  templateUrl: './skeleton-table.component.html',
+  styleUrl: './skeleton-table.component.css',
+})
+export class SkeletonTableComponent {
+  columns = input(5);
+  rows = input(5);
+}
+
+@Component({
+  selector: 'app-skeleton-list',
+  standalone: true,
+  imports: [CommonModule],
+  templateUrl: './skeleton-list.component.html',
+  styleUrl: './skeleton-list.component.css',
+})
+export class SkeletonListComponent {
+  items = input(5);
 }

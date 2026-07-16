@@ -1,0 +1,31 @@
+<div class="history-page">
+      <div class="page-header">
+        <h1 class="page-title">Appointment History</h1>
+        <p class="page-subtitle">View your past appointments</p>
+      </div>
+      <app-card>
+        <div class="history-list" *ngIf="!loading() && historyAppointments().length > 0">
+          <div class="history-item" *ngFor="let apt of historyAppointments()">
+            <div class="history-date">{{ apt.date | date:'MMM d, y' }}</div>
+            <div class="history-info">
+              <h3 class="service-name">{{ apt.service?.title }}</h3>
+              <p class="provider-name">{{ apt.provider?.name }}</p>
+            </div>
+            <span class="status" [ngClass]="apt.status">
+              {{ apt.status | titlecase }}
+            </span>
+          </div>
+        </div>
+
+        <app-empty-state
+          *ngIf="!loading() && historyAppointments().length === 0"
+          icon="history"
+          title="No history found"
+          description="You have no past appointments on record."
+        />
+
+        <div *ngIf="loading()" class="loading-state">
+          Loading history...
+        </div>
+      </app-card>
+    </div>

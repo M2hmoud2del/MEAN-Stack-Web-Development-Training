@@ -19,14 +19,20 @@ import paymentWebhookRoutes from "./modules/payment/payment.webhook.routes.js";
 import reviewRoutes from "./modules/review/review.routes.js";
 import dashboardRoutes from "./modules/dashboard/dashboard.routes.js";
 import notificationRoutes from "./modules/notification/notification.routes.js";
+import adminRoutes from "./modules/admin/admin.routes.js";
 
 const app = express();
 
 app.use(helmet());
 
+const corsOrigins = (process.env.CORS_ORIGIN || process.env.CLIENT_URL || "http://localhost:4200")
+  .split(",")
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+
 app.use(
   cors({
-    origin: process.env.CLIENT_URL || "http://localhost:4200"
+    origin: corsOrigins.length === 1 ? corsOrigins[0] : corsOrigins
   })
 );
 
@@ -50,6 +56,7 @@ app.use("/api/v1/payments", paymentRoutes);
 app.use("/api/v1/reviews", reviewRoutes);
 app.use("/api/v1/dashboard", dashboardRoutes);
 app.use("/api/v1/notifications", notificationRoutes);
+app.use("/api/v1/admin", adminRoutes);
 
 // 404 Handler
 app.use((req, res) => {

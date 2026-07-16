@@ -1,584 +1,35 @@
-import { Component, inject, signal, computed } from '@angular/core';
+import { Component, inject, signal, computed, effect } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { RouterLink } from '@angular/router';
 import { ModalComponent } from '../../../shared/components/modal/modal.component';
-import { ButtonComponent } from '../../../shared/components/button/button.component';
 import { AvatarComponent } from '../../../shared/components/avatar/avatar.component';
 import { BadgeComponent } from '../../../shared/components/badge/badge.component';
+import { AppointmentsApi } from '../../customer/appointments/appointments.api';
+import { AppointmentView } from '../../../core/models/appointment.model';
+
+const FINAL_STATUSES = ['completed', 'cancelled', 'rejected'];
 
 @Component({
   selector: 'app-calendar',
   standalone: true,
-  imports: [CommonModule, RouterLink, ModalComponent, ButtonComponent, AvatarComponent, BadgeComponent],
-  template: `
-    <div class="calendar-page">
-      <div class="calendar-header">
-        <div class="header-nav">
-          <button type="button" class="nav-btn" (click)="prevMonth()">
-            <span class="material-icons-outlined">chevron_left</span>
-          </button>
-          <h1 class="current-month">{{ currentMonth() | date:'MMMM y' }}</h1>
-          <button type="button" class="nav-btn" (click)="nextMonth()">
-            <span class="material-icons-outlined">chevron_right</span>
-          </button>
-        </div>
-        <div class="view-toggle">
-          <button type="button" class="toggle-btn" [ngClass]="{ 'is-active': viewMode() === 'month' }" (click)="viewMode.set('month')">
-            Month
-          </button>
-          <button type="button" class="toggle-btn" [ngClass]="{ 'is-active': viewMode() === 'week' }" (click)="viewMode.set('week')">
-            Week
-          </button>
-          <button type="button" class="toggle-btn" [ngClass]="{ 'is-active': viewMode() === 'day' }" (click)="viewMode.set('day')">
-            Day
-          </button>
-        </div>
-      </div>
-
-      <div class="calendar-body">
-        <!-- Month View -->
-        @if (viewMode() === 'month') {
-          <div class="calendar-grid">
-            <div class="calendar-weekdays">
-              @for (day of weekdays; track day) {
-                <div class="weekday">{{ day }}</div>
-              }
-            </div>
-            <div class="calendar-dates">
-              @for (date of calendarDates(); track date.toISOString()) {
-                <div
-                  class="calendar-date"
-                  [ngClass]="{
-                    'is-today': isToday(date),
-                    'is-outside': date.getMonth() !== currentMonth().getMonth()
-                  }"
-                  (click)="selectDate(date)"
-                >
-                  <span class="date-number">{{ date.getDate() }}</span>
-                  @if (getAppointmentsForDate(date).length > 0) {
-                    <div class="date-appointments">
-                      @for (apt of getAppointmentsForDate(date).slice(0, 2); track apt.id) {
-                        <div
-                          class="appointment-indicator"
-                          [style.background]="getStatusColor(apt.status)"
-                          (click)="$event.stopPropagation(); openAppointmentDetail(apt)"
-                        >
-                          <span class="apt-time">{{ apt.start_time | date:'HH:mm' }}</span>
-                          <span class="apt-title">{{ apt.service_name }}</span>
-                        </div>
-                      }
-                      @if (getAppointmentsForDate(date).length > 2) {
-                        <span class="more-appointments">+{{ getAppointmentsForDate(date).length - 2 }} more</span>
-                      }
-                    </div>
-                  }
-                </div>
-              }
-            </div>
-          </div>
-        }
-
-        <!-- Week View -->
-        @if (viewMode() === 'week') {
-          <div class="week-view">
-            <div class="week-header">
-              @for (day of weekDays(); track day.date) {
-                <div class="day-header" [ngClass]="{ 'is-today': isToday(day.date) }">
-                  <span class="day-name">{{ day.date | date:'EEE' }}</span>
-                  <span class="day-number">{{ day.date.getDate() }}</span>
-                </div>
-              }
-            </div>
-            <div class="week-body">
-              <div class="time-grid">
-                @for (hour of hours; track hour) {
-                  <div class="time-row">
-                    <span class="time-label">{{ hour }}</span>
-                    <div class="time-cells">
-                      @for (day of weekDays(); track day.date) {
-                        <div class="time-cell"></div>
-                      }
-                    </div>
-                  </div>
-                }
-              </div>
-            </div>
-          </div>
-        }
-
-        <!-- Day View -->
-        @if (viewMode() === 'day') {
-          <div class="day-view">
-            <div class="day-header">
-              <button type="button" class="nav-btn" (click)="prevDay()">
-                <span class="material-icons-outlined">chevron_left</span>
-              </button>
-              <div class="day-info">
-                <span class="day-name">{{ selectedDate() | date:'EEEE' }}</span>
-                <span class="day-date">{{ selectedDate() | date:'MMMM d, y' }}</span>
-              </div>
-              <button type="button" class="nav-btn" (click)="nextDay()">
-                <span class="material-icons-outlined">chevron_right</span>
-              </button>
-            </div>
-            <div class="day-body">
-              <div class="time-grid">
-                @for (hour of hours; track hour) {
-                  <div class="time-row">
-                    <span class="time-label">{{ hour }}</span>
-                    <div class="time-slot" (click)="openNewAppointment(hour)"></div>
-                  </div>
-                }
-              </div>
-              @for (apt of selectedDayAppointments(); track apt.id) {
-                <div
-                  class="day-appointment"
-                  [style.top]="getAppointmentTop(apt)"
-                  [style.height]="getAppointmentHeight(apt)"
-                  [style.background]="getStatusColor(apt.status)"
-                  (click)="openAppointmentDetail(apt)"
-                >
-                  <span class="apt-time">{{ apt.start_time | date:'HH:mm' }} - {{ apt.end_time | date:'HH:mm' }}</span>
-                  <span class="apt-title">{{ apt.service_name }}</span>
-                  <span class="apt-customer">{{ apt.customer_name }}</span>
-                </div>
-              }
-            </div>
-          </div>
-        }
-      </div>
-
-      <!-- Appointment Detail Modal -->
-      @if (selectedAppointment()) {
-        <app-modal
-          [isOpen]="!!selectedAppointment()"
-          [title]="selectedAppointment()?.service_name"
-          [description]="'Appointment Details'"
-          size="md"
-          (close)="selectedAppointment.set(null)"
-        >
-          <div class="appointment-detail">
-            <div class="detail-row">
-              <span class="detail-label">Customer</span>
-              <div class="detail-value">
-                <app-avatar
-                  [name]="selectedAppointment()?.customer_name"
-                  size="sm"
-                />
-                <span>{{ selectedAppointment()?.customer_name }}</span>
-              </div>
-            </div>
-            <div class="detail-row">
-              <span class="detail-label">Date & Time</span>
-              <span class="detail-value">{{ selectedAppointment()?.start_time | date:'MMM d, y HH:mm' }}</span>
-            </div>
-            <div class="detail-row">
-              <span class="detail-label">Duration</span>
-              <span class="detail-value">{{ selectedAppointment()?.duration }} minutes</span>
-            </div>
-            <div class="detail-row">
-              <span class="detail-label">Status</span>
-              <app-badge [variant]="getStatusVariant(selectedAppointment()?.status)">
-                {{ selectedAppointment()?.status }}
-              </app-badge>
-            </div>
-            <div class="detail-row">
-              <span class="detail-label">Price</span>
-              <span class="detail-value price">{{ selectedAppointment()?.total_amount | currency }}</span>
-            </div>
-          </div>
-        </app-modal>
-      }
-    </div>
-  `,
-  styles: [`
-    :host {
-      display: block;
-    }
-
-    .calendar-page {
-      display: flex;
-      flex-direction: column;
-      gap: var(--space-4);
-    }
-
-    .calendar-header {
-      display: flex;
-      flex-direction: column;
-      gap: var(--space-4);
-    }
-
-    @media (min-width: 640px) {
-      .calendar-header {
-        flex-direction: row;
-        align-items: center;
-        justify-content: space-between;
-      }
-    }
-
-    .header-nav {
-      display: flex;
-      align-items: center;
-      gap: var(--space-3);
-    }
-
-    .nav-btn {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      width: 36px;
-      height: 36px;
-      color: var(--text-secondary);
-      border-radius: var(--radius-lg);
-      transition: all var(--transition-fast);
-    }
-
-    .nav-btn:hover {
-      background: var(--gray-100);
-      color: var(--text-primary);
-    }
-
-    :host-context(.dark) .nav-btn:hover {
-      background: var(--gray-800);
-    }
-
-    .current-month {
-      font-size: var(--font-size-xl);
-      font-weight: var(--font-weight-semibold);
-      color: var(--text-primary);
-      margin: 0;
-    }
-
-    .view-toggle {
-      display: flex;
-      background: var(--gray-100);
-      border-radius: var(--radius-lg);
-      padding: 0.25rem;
-    }
-
-    :host-context(.dark) .view-toggle {
-      background: var(--gray-800);
-    }
-
-    .toggle-btn {
-      padding: var(--space-2) var(--space-4);
-      font-size: var(--font-size-sm);
-      color: var(--text-secondary);
-      border-radius: var(--radius-md);
-      transition: all var(--transition-fast);
-    }
-
-    .toggle-btn.is-active {
-      background: var(--surface);
-      color: var(--text-primary);
-      box-shadow: var(--shadow-sm);
-    }
-
-    :host-context(.dark) .toggle-btn.is-active {
-      background: var(--gray-700);
-    }
-
-    .calendar-body {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: var(--radius-xl);
-      overflow: hidden;
-    }
-
-    :host-context(.dark) .calendar-body {
-      background: var(--gray-800);
-      border-color: var(--gray-700);
-    }
-
-    .calendar-grid {
-      display: flex;
-      flex-direction: column;
-    }
-
-    .calendar-weekdays {
-      display: grid;
-      grid-template-columns: repeat(7, 1fr);
-      border-bottom: 1px solid var(--border);
-    }
-
-    :host-context(.dark) .calendar-weekdays {
-      border-color: var(--gray-700);
-    }
-
-    .weekday {
-      padding: var(--space-3);
-      text-align: center;
-      font-size: var(--font-size-sm);
-      font-weight: var(--font-weight-medium);
-      color: var(--text-secondary);
-    }
-
-    .calendar-dates {
-      display: grid;
-      grid-template-columns: repeat(7, 1fr);
-    }
-
-    .calendar-date {
-      min-height: 100px;
-      padding: var(--space-2);
-      border-right: 1px solid var(--border);
-      border-bottom: 1px solid var(--border);
-      cursor: pointer;
-      transition: all var(--transition-fast);
-    }
-
-    :host-context(.dark) .calendar-date {
-      border-color: var(--gray-700);
-    }
-
-    .calendar-date:nth-child(7n) {
-      border-right: none;
-    }
-
-    .calendar-date:hover {
-      background: var(--gray-50);
-    }
-
-    :host-context(.dark) .calendar-date:hover {
-      background: var(--gray-900);
-    }
-
-    .calendar-date.is-today {
-      background: var(--primary-50);
-    }
-
-    :host-context(.dark) .calendar-date.is-today {
-      background: rgba(79, 70, 229, 0.1);
-    }
-
-    .calendar-date.is-outside {
-      opacity: 0.4;
-    }
-
-    .date-number {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      width: 28px;
-      height: 28px;
-      font-size: var(--font-size-sm);
-      color: var(--text-primary);
-      border-radius: var(--radius-full);
-    }
-
-    .is-today .date-number {
-      background: var(--primary-500);
-      color: white;
-    }
-
-    .date-appointments {
-      display: flex;
-      flex-direction: column;
-      gap: 2px;
-      margin-top: var(--space-1);
-    }
-
-    .appointment-indicator {
-      display: flex;
-      align-items: center;
-      gap: var(--space-1);
-      padding: 2px var(--space-2);
-      font-size: var(--font-size-xs);
-      color: white;
-      border-radius: 2px;
-      overflow: hidden;
-      cursor: pointer;
-    }
-
-    .apt-time {
-      flex-shrink: 0;
-    }
-
-    .apt-title {
-      flex: 1;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-
-    .more-appointments {
-      font-size: var(--font-size-xs);
-      color: var(--text-secondary);
-      padding: 2px var(--space-2);
-    }
-
-    .appointment-detail {
-      display: flex;
-      flex-direction: column;
-      gap: var(--space-4);
-    }
-
-    .detail-row {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-    }
-
-    .detail-label {
-      font-size: var(--font-size-sm);
-      color: var(--text-secondary);
-    }
-
-    .detail-value {
-      display: flex;
-      align-items: center;
-      gap: var(--space-2);
-      font-size: var(--font-size-sm);
-      font-weight: var(--font-weight-medium);
-      color: var(--text-primary);
-    }
-
-    .detail-value.price {
-      color: var(--primary-500);
-      font-size: var(--font-size-lg);
-    }
-
-    /* Week View */
-    .week-view {
-      padding: var(--space-4);
-    }
-
-    .week-header {
-      display: grid;
-      grid-template-columns: repeat(7, 1fr);
-      gap: var(--space-2);
-      margin-bottom: var(--space-4);
-    }
-
-    .day-header {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      padding: var(--space-2);
-      border-radius: var(--radius-lg);
-    }
-
-    .day-header.is-today {
-      background: var(--primary-100);
-    }
-
-    :host-context(.dark) .day-header.is-today {
-      background: rgba(79, 70, 229, 0.2);
-    }
-
-    .day-name {
-      font-size: var(--font-size-xs);
-      color: var(--text-secondary);
-    }
-
-    .day-number {
-      font-size: var(--font-size-lg);
-      font-weight: var(--font-weight-semibold);
-      color: var(--text-primary);
-    }
-
-    /* Day View */
-    .day-view {
-      padding: var(--space-4);
-    }
-
-    .day-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin-bottom: var(--space-4);
-    }
-
-    .day-info {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-    }
-
-    .day-view .day-name {
-      font-size: var(--font-size-sm);
-      color: var(--text-secondary);
-    }
-
-    .day-date {
-      font-size: var(--font-size-lg);
-      font-weight: var(--font-weight-semibold);
-      color: var(--text-primary);
-    }
-
-    .day-body {
-      position: relative;
-    }
-
-    .time-grid {
-      display: flex;
-      flex-direction: column;
-    }
-
-    .time-row {
-      display: flex;
-      boundary-bottom: 1px solid var(--border);
-      min-height: 60px;
-    }
-
-    .time-label {
-      width: 60px;
-      padding: var(--space-2);
-      font-size: var(--font-size-xs);
-      color: var(--text-secondary);
-      text-align: right;
-    }
-
-    .time-slot {
-      flex: 1;
-      min-height: 60px;
-      cursor: pointer;
-      transition: background var(--transition-fast);
-    }
-
-    .time-slot:hover {
-      background: var(--primary-50);
-    }
-
-    :host-context(.dark) .time-slot:hover {
-      background: rgba(79, 70, 229, 0.1);
-    }
-
-    .day-appointment {
-      position: absolute;
-      left: 70px;
-      right: var(--space-4);
-      padding: var(--space-2);
-      border-radius: var(--radius-md);
-      color: white;
-      overflow: hidden;
-      cursor: pointer;
-    }
-
-    .day-appointment .apt-time {
-      font-size: 10px;
-      opacity: 0.9;
-    }
-
-    .day-appointment .apt-title {
-      font-size: var(--font-size-sm);
-      font-weight: var(--font-weight-medium);
-    }
-
-    .day-appointment .apt-customer {
-      font-size: var(--font-size-xs);
-      opacity: 0.9;
-    }
-  `],
+  imports: [CommonModule, ModalComponent, AvatarComponent, BadgeComponent],
+  templateUrl: './calendar.component.html',
+  styleUrl: './calendar.component.css',
 })
 export class CalendarComponent {
+  private appointmentsApi = inject(AppointmentsApi);
+
   weekdays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-  hours = ['8:00', '9:00', '10:00', '11:00', '12:00', '1:00', '2:00', '3:00', '4:00', '5:00'];
+  hours = ['8:00', '9:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00'];
 
   currentDate = signal(new Date());
   viewMode = signal<'month' | 'week' | 'day'>('month');
   selectedDate = signal(new Date());
-  selectedAppointment = signal<any>(null);
+  selectedAppointment = signal<AppointmentView | null>(null);
+
+  loading = signal(false);
+  appointments = signal<AppointmentView[]>([]);
+  actionLoading = signal(false);
+  actionError = signal<string | null>(null);
 
   currentMonth = computed(() => {
     const date = this.currentDate();
@@ -624,41 +75,45 @@ export class CalendarComponent {
     return days;
   });
 
-  selectedDayAppointments = signal([
-    {
-      id: '1',
-      service_name: 'Haircut & Styling',
-      customer_name: 'Emma Wilson',
-      start_time: '2026-07-01T09:00:00',
-      end_time: '2026-07-01T10:00:00',
-      status: 'confirmed',
-      duration: 60,
-      total_amount: 65,
-    },
-    {
-      id: '2',
-      service_name: 'Hair Coloring',
-      customer_name: 'James Brown',
-      start_time: '2026-07-01T10:30:00',
-      end_time: '2026-07-01T12:00:00',
-      status: 'in_progress',
-      duration: 90,
-      total_amount: 120,
-    },
-  ]);
+  // When the selected date changes (in day view), recompute the day's appointments
+  selectedDayAppointments = computed(() => {
+    const selected = this.selectedDate();
+    const localDate = this.toDateString(selected);
+    return this.appointments().filter(a => a.localDate === localDate);
+  });
 
-  appointments = signal([
-    { id: '1', service_name: 'Haircut', start_time: '2026-07-01T09:00:00', end_time: '2026-07-01T10:00:00', status: 'confirmed', customer_name: 'Emma Wilson' },
-    { id: '2', service_name: 'Hair Coloring', start_time: '2026-07-01T10:30:00', end_time: '2026-07-01T12:00:00', status: 'pending', customer_name: 'James Brown' },
-    { id: '3', service_name: 'Facial', start_time: '2026-07-02T14:00:00', end_time: '2026-07-02T15:00:00', status: 'confirmed', customer_name: 'Sarah Davis' },
-    { id: '4', service_name: 'Massage', start_time: '2026-07-03T16:00:00', end_time: '2026-07-03T17:30:00', status: 'cancelled', customer_name: 'Mike Johnson' },
-  ]);
+  constructor() {
+    void this.loadAppointments();
 
-  getAppointmentsForDate(date: Date): any[] {
-    return this.appointments().filter(apt => {
-      const aptDate = new Date(apt.start_time);
-      return aptDate.toDateString() === date.toDateString();
+    // Reload when the viewed month changes
+    effect(() => {
+      void this.currentMonth(); // track dependency
+      void this.loadAppointments();
     });
+  }
+
+  async loadAppointments(): Promise<void> {
+    this.loading.set(true);
+    try {
+      const apts = await this.appointmentsApi.getProviderAppointments();
+      this.appointments.set(apts);
+    } catch {
+      this.appointments.set([]);
+    } finally {
+      this.loading.set(false);
+    }
+  }
+
+  toDateString(date: Date): string {
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  }
+
+  getAppointmentsForDate(date: Date): AppointmentView[] {
+    const localDate = this.toDateString(date);
+    return this.appointments().filter(a => a.localDate === localDate);
   }
 
   isToday(date: Date): boolean {
@@ -667,24 +122,23 @@ export class CalendarComponent {
 
   getStatusColor(status: string): string {
     switch (status) {
-      case 'confirmed': return 'var(--primary-500)';
-      case 'completed': return 'var(--success-500)';
-      case 'in_progress': return 'var(--warning-500)';
-      case 'cancelled': return 'var(--gray-400)';
-      default: return 'var(--primary-500)';
+      case 'confirmed':      return 'var(--primary-500)';
+      case 'completed':      return 'var(--success-500)';
+      case 'pending_payment':return 'var(--warning-500)';
+      case 'cancelled':      return 'var(--gray-400)';
+      case 'rejected':       return 'var(--gray-400)';
+      default:               return 'var(--primary-500)';
     }
   }
 
-  getStatusVariant(status: string): 'success' | 'warning' | 'gray' {
+  getStatusVariant(status: string | undefined): 'success' | 'warning' | 'gray' | 'primary' | 'danger' {
     switch (status) {
-      case 'confirmed':
-      case 'completed':
-        return 'success';
-      case 'in_progress':
-      case 'pending':
-        return 'warning';
-      default:
-        return 'gray';
+      case 'confirmed':       return 'primary';
+      case 'completed':       return 'success';
+      case 'pending_payment': return 'warning';
+      case 'cancelled':
+      case 'rejected':        return 'danger';
+      default:                return 'gray';
     }
   }
 
@@ -693,7 +147,7 @@ export class CalendarComponent {
     this.viewMode.set('day');
   }
 
-  openAppointmentDetail(apt: any): void {
+  openAppointmentDetail(apt: AppointmentView): void {
     this.selectedAppointment.set(apt);
   }
 
@@ -701,16 +155,17 @@ export class CalendarComponent {
     console.log('New appointment at:', hour);
   }
 
-  getAppointmentTop(apt: any): string {
-    const start = new Date(apt.start_time);
-    const hours = start.getHours();
-    const minutes = start.getMinutes();
-    const totalMinutes = (hours - 8) * 60 + minutes;
+  getAppointmentTop(apt: AppointmentView): string {
+    const [h, m] = apt.startTime.split(':').map(Number);
+    const totalMinutes = (h - 8) * 60 + m;
     return `${totalMinutes}px`;
   }
 
-  getAppointmentHeight(apt: any): string {
-    return `${apt.duration}px`;
+  getAppointmentHeight(apt: AppointmentView): string {
+    const [sh, sm] = apt.startTime.split(':').map(Number);
+    const [eh, em] = apt.endTime.split(':').map(Number);
+    const duration = (eh - sh) * 60 + (em - sm);
+    return `${Math.max(duration, 30)}px`;
   }
 
   prevMonth(): void {
@@ -731,5 +186,41 @@ export class CalendarComponent {
   nextDay(): void {
     const selected = this.selectedDate();
     this.selectedDate.set(new Date(selected.getFullYear(), selected.getMonth(), selected.getDate() + 1));
+  }
+
+  canActOnAppointment(status: string | undefined): boolean {
+    return !!status && !FINAL_STATUSES.includes(status);
+  }
+
+  async completeSelectedAppointment(): Promise<void> {
+    const apt = this.selectedAppointment();
+    if (!apt) return;
+    this.actionLoading.set(true);
+    this.actionError.set(null);
+    try {
+      const updated = await this.appointmentsApi.completeAppointment(apt._id);
+      this.appointments.update(list => list.map(a => a._id === updated._id ? updated : a));
+      this.selectedAppointment.set(updated);
+    } catch (err) {
+      this.actionError.set((err as { message?: string })?.message ?? 'Failed to complete appointment.');
+    } finally {
+      this.actionLoading.set(false);
+    }
+  }
+
+  async cancelSelectedAppointment(): Promise<void> {
+    const apt = this.selectedAppointment();
+    if (!apt) return;
+    this.actionLoading.set(true);
+    this.actionError.set(null);
+    try {
+      const updated = await this.appointmentsApi.cancelAppointment(apt._id);
+      this.appointments.update(list => list.map(a => a._id === updated._id ? updated : a));
+      this.selectedAppointment.set(updated);
+    } catch (err) {
+      this.actionError.set((err as { message?: string })?.message ?? 'Failed to cancel appointment.');
+    } finally {
+      this.actionLoading.set(false);
+    }
   }
 }

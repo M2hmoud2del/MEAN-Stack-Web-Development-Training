@@ -1,61 +1,97 @@
-import { Component } from '@angular/core';
+import { Component, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { CardComponent } from '../../../shared/components/card/card.component';
-import { AvatarComponent } from '../../../shared/components/avatar/avatar.component';
 import { RatingComponent } from '../../../shared/components/rating/rating.component';
-import { ButtonComponent } from '../../../shared/components/button/button.component';
+import { AuthService } from '../../../core/services/auth.service';
+import { ReviewView } from '../../../core/models/review.model';
+import { ReviewListComponent } from '../shared/review-list.component';
+import { ReviewsApi } from '../../customer/reviews/reviews.api';
+import { ProviderProfileApi } from '../profile/provider-profile.api';
 
 @Component({
   selector: 'app-provider-reviews',
   standalone: true,
-  imports: [CommonModule, CardComponent, AvatarComponent, RatingComponent, ButtonComponent],
-  template: `
-    <div class="reviews-page">
-      <div class="page-header">
-        <h1 class="page-title">Reviews</h1>
-        <p class="page-subtitle">Manage customer reviews and feedback</p>
-      </div>
-      <app-card>
-        <div class="reviews-list">
-          @for (review of reviews; track review.id) {
-            <div class="review-item">
-              <div class="review-header">
-                <app-avatar [name]="review.customer_name" size="sm" />
-                <div class="reviewer-info">
-                  <span class="reviewer-name">{{ review.customer_name }}</span>
-                  <span class="review-date">{{ review.date }}</span>
-                </div>
-                <app-rating [value]="review.rating" [readonly]="true" />
-              </div>
-              <p class="review-comment">{{ review.comment }}</p>
-              <div class="review-actions">
-                <app-button variant="ghost" size="sm">Respond</app-button>
-              </div>
-            </div>
-          }
-        </div>
-      </app-card>
-    </div>
-  `,
-  styles: [`
-    .reviews-page { display: flex; flex-direction: column; gap: var(--space-6); }
-    .page-header { margin-bottom: var(--space-2); }
-    .page-title { font-size: var(--font-size-2xl); font-weight: var(--font-weight-bold); color: var(--text-primary); margin: 0; }
-    .page-subtitle { font-size: var(--font-size-sm); color: var(--text-secondary); margin: var(--space-1) 0 0; }
-    .reviews-list { display: flex; flex-direction: column; }
-    .review-item { padding: var(--space-4); border-bottom: 1px solid var(--border); }
-    .review-header { display: flex; align-items: center; gap: var(--space-3); margin-bottom: var(--space-3); }
-    .reviewer-info { flex: 1; }
-    .reviewer-name { font-size: var(--font-size-sm); font-weight: var(--font-weight-medium); color: var(--text-primary); display: block; }
-    .review-date { font-size: var(--font-size-xs); color: var(--text-tertiary); }
-    .review-comment { font-size: var(--font-size-sm); color: var(--text-secondary); margin: 0 0 var(--space-3); line-height: var(--line-height-relaxed); }
-    .review-actions { display: flex; justify-content: flex-end; }
-  `],
+  imports: [
+    CommonModule,
+    CardComponent,
+    RatingComponent,
+    ReviewListComponent,
+  ],
+  templateUrl: './reviews.component.html',
+  styleUrl: './reviews.component.css',
 })
 export class ProviderReviewsComponent {
-  reviews = [
-    { id: '1', customer_name: 'Emma Wilson', rating: 5, comment: 'Amazing service! Will definitely come back.', date: 'Jun 28, 2026' },
-    { id: '2', customer_name: 'David Chen', rating: 4, comment: 'Great haircut, very professional.', date: 'Jun 25, 2026' },
-    { id: '3', customer_name: 'Sarah Miller', rating: 5, comment: 'Best salon experience ever!', date: 'Jun 20, 2026' },
-  ];
+  private authService = inject(AuthService);
+  private reviewsApi = inject(ReviewsApi);
+  private providerProfileApi = inject(ProviderProfileApi);
+
+  reviews = signal<ReviewView[]>([]);
+  loading = signal(false);
+  error = signal<string | null>(null);
+  backendAverageRating = signal<number | null>(null);
+  backendTotalReviews = signal<number | null>(null);
+
+  totalReviews = computed(() => this.backendTotalReviews() ?? this.reviews().length);
+
+  averageRatingNum = computed(() => {
+    const backendAverage = this.backendAverageRating();
+    if (backendAverage !== null) return backendAverage;
+
+    const r = this.reviews();
+    if (r.length === 0) return 0;
+    return r.reduce((sum, x) => sum + x.rating, 0) / r.length;
+  });
+
+  averageRating = computed(() => this.averageRatingNum().toFixed(1));
+
+  fiveStarCount = computed(() => this.reviews().filter(r => r.rating === 5).length);
+  oneStarCount = computed(() => this.reviews().filter(r => r.rating === 1).length);
+
+  constructor() {
+    void this.loadReviews();
+  }
+
+  async loadReviews(): Promise<void> {
+    this.loading.set(true);
+    this.error.set(null);
+
+    try {
+      const providerId = await this.resolveProviderId();
+      const result = await this.reviewsApi.getProviderReviews(providerId);
+      this.reviews.set(result.reviews);
+      this.backendAverageRating.set(result.averageRating);
+      this.backendTotalReviews.set(result.totalReviews);
+    } catch (err) {
+      this.error.set(this.errorMessage(err, 'Unable to load provider reviews.'));
+      this.reviews.set([]);
+      this.backendAverageRating.set(null);
+      this.backendTotalReviews.set(null);
+    } finally {
+      this.loading.set(false);
+    }
+  }
+
+  getDistCount(star: number): number {
+    return this.reviews().filter(r => r.rating === star).length;
+  }
+
+  getDistPercent(star: number): number {
+    const total = this.reviews().length;
+    return total > 0 ? (this.getDistCount(star) / total) * 100 : 0;
+  }
+
+  private async resolveProviderId(): Promise<string> {
+    const currentUserId = this.authService.user()?._id;
+    if (currentUserId) {
+      return currentUserId;
+    }
+
+    const profile = await this.providerProfileApi.getMyProviderProfile();
+    return profile.user;
+  }
+
+  private errorMessage(err: unknown, fallback: string): string {
+    const message = (err as { message?: string })?.message;
+    return message || (err instanceof Error ? err.message : fallback);
+  }
 }
