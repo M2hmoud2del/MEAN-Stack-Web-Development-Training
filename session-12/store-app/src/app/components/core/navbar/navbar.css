@@ -1,0 +1,35 @@
+/* Smooth transition for links */
+a {
+  transition: all 0.3s ease;
+}
+
+/* Active link */
+a[aria-current="page"] {
+  font-weight: 600;
+}
+
+/* Navbar shadow */
+nav {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+/* Logo animation */
+nav img {
+  transition: transform 0.3s ease;
+}
+
+nav img:hover {
+  transform: rotate(10deg) scale(1.05);
+}
+
+/* Brand name */
+nav span {
+  letter-spacing: 0.5px;
+}
+
+/* Hover effect for desktop links */
+@media (min-width: 768px) {
+  nav ul li a:hover {
+    transform: translateY(-2px);
+  }
+}
